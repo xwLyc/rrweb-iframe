@@ -5407,105 +5407,87 @@ var Replayer = (function() {
       isSync = false
     }
     var castFn
-    if (event.scope) {
-      switch (event.type) {
-        case exports.EventType.FullSnapshot:
-          castFn = function() {
-            // if (_this.scopeIframeFullSnapshot) {
-            //   if (_this.scopeIframeFullSnapshot === event) {
-            //     _this.scopeIframeFullSnapshot = true;
-            //     return;
-            //   }
-            // } else {
-            //   _this.scopeIframeFullSnapshot = true;
-            // }
-            // _this.rebuildFullSnapshot(event, isSync, event.scope);
-            // _this.iframe.contentWindow.scrollTo(event.data.initialOffset);
-          }
-          break
-      }
-    } else {
-      switch (event.type) {
-        case exports.EventType.DomContentLoaded:
-        case exports.EventType.Load:
-          break
-        case exports.EventType.Custom:
-          castFn = function() {
-            _this.emitter.emit(exports.ReplayerEvents.CustomEvent, event)
-          }
-          break
-        case exports.EventType.Meta:
-          castFn = function() {
-            return _this.emitter.emit(exports.ReplayerEvents.Resize, {
-              width: event.data.width,
-              height: event.data.height
-            })
-          }
-          break
-        case exports.EventType.FullSnapshot:
-          castFn = function() {
-            if (_this.firstFullSnapshot) {
-              if (_this.firstFullSnapshot === event) {
-                _this.firstFullSnapshot = true
-                return
-              }
-            } else {
+    switch (event.type) {
+      case exports.EventType.DomContentLoaded:
+      case exports.EventType.Load:
+        break
+      case exports.EventType.Custom:
+        castFn = function() {
+          _this.emitter.emit(exports.ReplayerEvents.CustomEvent, event)
+        }
+        break
+      case exports.EventType.Meta:
+        castFn = function() {
+          return _this.emitter.emit(exports.ReplayerEvents.Resize, {
+            width: event.data.width,
+            height: event.data.height
+          })
+        }
+        break
+      case exports.EventType.FullSnapshot:
+        castFn = function() {
+          if (_this.firstFullSnapshot) {
+            if (_this.firstFullSnapshot === event) {
               _this.firstFullSnapshot = true
-            }
-            _this.rebuildFullSnapshot(event, isSync)
-            _this.iframe.contentWindow.scrollTo(event.data.initialOffset)
-          }
-          break
-        case exports.EventType.IncrementalSnapshot:
-          castFn = function() {
-            var e_6, _a
-            _this.applyIncremental(event, isSync)
-            if (isSync) {
               return
             }
-            if (event === _this.nextUserInteractionEvent) {
-              _this.nextUserInteractionEvent = null
-              _this.backToNormal()
-            }
-            if (_this.config.skipInactive && !_this.nextUserInteractionEvent) {
+          } else {
+            _this.firstFullSnapshot = true
+          }
+          _this.rebuildFullSnapshot(event, isSync)
+          _this.iframe.contentWindow.scrollTo(event.data.initialOffset)
+        }
+        break
+      case exports.EventType.IncrementalSnapshot:
+        castFn = function() {
+          var e_6, _a
+          _this.applyIncremental(event, isSync)
+          if (isSync) {
+            return
+          }
+          if (event === _this.nextUserInteractionEvent) {
+            _this.nextUserInteractionEvent = null
+            _this.backToNormal()
+          }
+          if (_this.config.skipInactive && !_this.nextUserInteractionEvent) {
+            try {
+              for (var _b = __values(_this.service.state.context.events), _c = _b.next(); !_c.done; _c = _b.next()) {
+                var _event = _c.value
+                if (_event.timestamp <= event.timestamp) {
+                  continue
+                }
+                if (_this.isUserInteraction(_event)) {
+                  if (_event.delay - event.delay > SKIP_TIME_THRESHOLD * _this.speedService.state.context.timer.speed) {
+                    _this.nextUserInteractionEvent = _event
+                  }
+                  break
+                }
+              }
+            } catch (e_6_1) {
+              e_6 = { error: e_6_1 }
+            } finally {
               try {
-                for (var _b = __values(_this.service.state.context.events), _c = _b.next(); !_c.done; _c = _b.next()) {
-                  var _event = _c.value
-                  if (_event.timestamp <= event.timestamp) {
-                    continue
-                  }
-                  if (_this.isUserInteraction(_event)) {
-                    if (_event.delay - event.delay > SKIP_TIME_THRESHOLD * _this.speedService.state.context.timer.speed) {
-                      _this.nextUserInteractionEvent = _event
-                    }
-                    break
-                  }
-                }
-              } catch (e_6_1) {
-                e_6 = { error: e_6_1 }
+                if (_c && !_c.done && (_a = _b.return)) _a.call(_b)
               } finally {
-                try {
-                  if (_c && !_c.done && (_a = _b.return)) _a.call(_b)
-                } finally {
-                  if (e_6) throw e_6.error
-                }
+                if (e_6) throw e_6.error
               }
-              if (_this.nextUserInteractionEvent) {
-                var skipTime = _this.nextUserInteractionEvent.delay - event.delay
-                var payload = {
-                  speed: Math.min(Math.round(skipTime / SKIP_TIME_INTERVAL), _this.config.maxSpeed)
-                }
-                _this.speedService.send({
-                  type: 'FAST_FORWARD',
-                  payload: payload
-                })
-                _this.emitter.emit(exports.ReplayerEvents.SkipStart, payload)
+            }
+            if (_this.nextUserInteractionEvent) {
+              var skipTime = _this.nextUserInteractionEvent.delay - event.delay
+              var payload = {
+                speed: Math.min(Math.round(skipTime / SKIP_TIME_INTERVAL), _this.config.maxSpeed)
               }
+              _this.speedService.send({
+                type: 'FAST_FORWARD',
+                payload: payload
+              })
+              _this.emitter.emit(exports.ReplayerEvents.SkipStart, payload)
             }
           }
-          break
-      }
+        }
+        break
     }
+
     var wrappedCastFn = function() {
       var e_7, _a
       if (castFn) {
@@ -5574,6 +5556,11 @@ var Replayer = (function() {
       for (let i = 0; i < iframesPlayer.length; i++) {
         const { iframeId, iframeEvents } = iframesPlayer[i]
         const doc = this.iframe.contentDocument.getElementById(iframeId).contentDocument.body
+        if (iframesPlayer[i].player) {
+          // 重置播放器
+          iframesPlayer[i].player.pause()
+          iframesPlayer[i].player = null
+        }    
         iframesPlayer[i].player = new Replayer(iframeEvents, {
           root: doc,
           // insertStyleRules: ['* { color: red }'],

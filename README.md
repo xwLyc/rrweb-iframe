@@ -132,6 +132,11 @@ if (iframesPlayer.length > 0) {
   for (let i = 0; i < iframesPlayer.length; i++) {
     const { iframeId, iframeEvents } = iframesPlayer[i]
     const doc = this.iframe.contentDocument.getElementById(iframeId).contentDocument.body
+    if (iframesPlayer[i].player) {
+      // 重置播放器
+      iframesPlayer[i].player.pause()
+      iframesPlayer[i].player = null
+    }
     iframesPlayer[i].player = new Replayer(iframeEvents, {
       root: doc,
       insertStyleRules: ['* { color: red }'],
